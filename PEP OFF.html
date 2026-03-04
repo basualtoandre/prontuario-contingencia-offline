@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P.E.P. - Modo de Contingência Offline</title>
+    <!-- Autor -->
+    <meta name="author" content="André Basualto">
+
+    <!-- Contato -->
+    <meta name="contact" content="basualtoandre@gmail.com">
+
+    <!-- Data de criação -->
+    <meta name="date" content="2026-03-03" scheme="YYYY-MM-DD">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #2c3e50; --secondary: #34495e; --accent: #3498db;
+            --success: #27ae60; --danger: #e74c3c; --bg: #ecf0f1; --text: #333;
+            --sidebar-width: 260px;
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; height: 100vh; overflow: hidden; }
+
+        /* TELA DE LOGIN */
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--primary); color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+        .login-box { background: white; padding: 40px; border-radius: 8px; color: var(--text); text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .login-box input { display: block; width: 300px; margin: 10px 0; padding: 12px; border: 1px solid #ccc; border-radius: 4px; }
+
+        /* LAYOUT PRINCIPAL */
+        #app-content { display: none; width: 100%; height: 100%; }
+        
+        #sidebar-left { width: var(--sidebar-width); background: var(--primary); color: white; display: flex; flex-direction: column; border-right: 1px solid #1a252f; }
+        #sidebar-right { width: var(--sidebar-width); background: var(--secondary); color: white; display: none; flex-direction: column; border-left: 1px solid #1a252f; }
+        
+        .sidebar-header { padding: 15px; background: rgba(0,0,0,0.2); text-align: center; font-weight: bold; font-size: 0.9rem; }
+        .dr-info { padding: 10px; font-size: 0.8rem; background: rgba(255,255,255,0.1); border-bottom: 1px solid #555; text-align: center;}
+
+        .nav-group { padding: 10px; flex: 1; overflow-y: auto; }
+        .nav-btn { width: 100%; background: none; border: 1px solid transparent; color: rgba(255,255,255,0.8); padding: 12px 15px; text-align: left; cursor: pointer; border-radius: 4px; transition: 0.2s; font-size: 0.9rem; display: flex; align-items: center; gap: 10px;}
+        .nav-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+        .nav-btn.active { background: var(--accent); color: white; font-weight: bold; }
+        .nav-btn.btn-alta { margin-top: auto; border-top: 1px solid #555; color: #fab1a0; }
+        .nav-btn.btn-alta:hover { background: var(--danger); color: white; }
+
+        main { flex: 1; position: relative; display: flex; flex-direction: column; background: white; }
+        
+        #patient-header { background: #e8f4fd; padding: 15px 25px; border-bottom: 1px solid #d6e9f8; display: none; border-left: 5px solid var(--accent); }
+        #patient-header h2 { margin: 0 0 5px 0; color: var(--primary); font-size: 1.3rem; }
+        #patient-header p { margin: 0; font-size: 0.9rem; color: #555; }
+
+        .view-container { flex: 1; padding: 30px; overflow-y: auto; display: none; }
+        .view-container.active { display: block; }
+
+        h1 { font-size: 1.5rem; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; color: var(--primary); }
+        h3 { margin-top: 25px; color: var(--secondary); }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.85rem; color: #555; }
+        input, textarea, select { width: 100%; padding: 11px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; font-size: 0.95rem; }
+        textarea { height: 150px; resize: vertical; }
+
+        .btn { padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        
+        .action-bar { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; display: flex; gap: 10px; justify-content: flex-end; }
+
+        .dynamic-table-builder { background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px; }
+        .table-input-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 10px; margin-bottom: 10px; }
+        
+        table.preview-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; }
+        table.preview-table th, table.preview-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        table.preview-table th { background: #f2f2f2; color: var(--primary); }
+        table.preview-table tr:nth-child(even) { background-color: #fafafa; }
+
+        .atendimento-card { background: white; border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; }
+        .status-badge { background: #ffeaa7; color: #d35400; padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div id="login-screen">
+        <div class="login-box">
+            <h2 style="margin-top:0">Acesso ao Sistema</h2>
+            <p style="color: #7f8c8d; margin-bottom: 20px;">Modo de Contingência Offline</p>
+            <input type="text" id="medico-nome" placeholder="Nome Completo do Médico" required>
+            <input type="text" id="medico-crm" placeholder="CRM (ex: 1234-AM)" required>
+            <button class="btn btn-primary" style="width:100%" onclick="realizarLogin()">Entrar</button>
+        </div>
+    </div>
+
+    <div id="app-content">
+        <nav id="sidebar-left">
+            <div class="sidebar-header">MENU PRINCIPAL</div>
+            <div class="dr-info">Dr(a). <span id="display-dr-nome"></span> | <span id="display-dr-crm"></span></div>
+            <div class="nav-group">
+                <button class="nav-btn active" onclick="showView('view-admin')" id="nav-admin">📄 Novo Atendimento</button>
+                <button class="nav-btn" onclick="showView('view-lista')" id="nav-lista">👥 Atendimentos Abertos</button>
+                <button class="nav-btn" onclick="showView('view-finalizados')" id="nav-finalizados">✅ Atendimentos Finalizados</button>
+                <button class="nav-btn" onclick="showView('view-historico')" id="nav-historico">📜 Histórico Geral Local</button>
+            </div>
+        </nav>
+
+        <main>
+            <div id="patient-header">
+                <h2><span id="head-nome">Nome do Paciente</span></h2>
+                <p>
+                    <strong>Nº Atendimento:</strong> <span id="head-id">000</span> | 
+                    <strong>Nasc:</strong> <span id="head-nasc">--/--/----</span> | 
+                    <strong>Doc:</strong> <span id="head-doc">---</span>
+                </p>
+            </div>
+
+            <div id="view-admin" class="view-container active">
+                <h1>Admissão Rápida (Contingência)</h1>
+                <div class="form-grid">
+                    <div class="form-group"><label>Nome Completo do Paciente *</label><input type="text" id="adm-nome" placeholder="Ex: João da Silva"></div>
+                    <div class="form-group"><label>Número do Atendimento *</label><input type="text" id="adm-id" placeholder="Gerado pelo sistema ou manual"></div>
+                    <div class="form-group"><label>Data de Nascimento</label><input type="date" id="adm-nasc"></div>
+                    <div class="form-group"><label>CPF ou RG</label><input type="text" id="adm-doc" placeholder="000.000.000-00"></div>
+                </div>
+                <button class="btn btn-success" onclick="criarAtendimento()">▶️ Iniciar Atendimento</button>
+            </div>
+
+            <div id="view-lista" class="view-container">
+                <h1>Atendimentos Abertos</h1>
+                <div id="lista-atendimentos-container"></div>
+            </div>
+
+            <div id="view-finalizados" class="view-container">
+                <h1>Atendimentos Finalizados</h1>
+                <div id="lista-finalizados-container"></div>
+            </div>
+
+            <div id="view-historico" class="view-container">
+                <h1>Histórico Geral Local</h1>
+                <table class="preview-table" id="table-logs-geral">
+                    <thead><tr><th>Data/Hora</th><th>Atendimento</th><th>Paciente</th><th>Documento</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+                <div style="margin-top:20px; text-align:right"><button class="btn btn-danger" onclick="limparStorage()">⚠️ Limpar Tudo</button></div>
+            </div>
+
+            <div id="view-evolucao" class="view-container">
+                <h1>Evolução Médica</h1>
+                <textarea id="txt-evolucao" placeholder="Digite aqui a evolução..."></textarea>
+                <div class="action-bar"><button class="btn btn-primary" onclick="gerarPdfSimples('Evolucao', 'txt-evolucao')">🖨️ Gerar PDF</button></div>
+            </div>
+
+            <div id="view-prescricao" class="view-container">
+                <h1>Prescrição Médica</h1>
+                <div class="dynamic-table-builder">
+                    <div class="table-input-grid">
+                        <input type="text" id="in-prescricao-item" placeholder="Medicamento, Dose, Via, Frequência...">
+                        <button class="btn btn-success" onclick="addLinhaTabela('prescricao')">+ Incluir</button>
+                    </div>
+                </div>
+                <h3>Itens Prescritos (<span id="count-prescricao">0</span>)</h3>
+                <table class="preview-table" id="table-prescricao-preview">
+                    <thead><tr><th width="50px">Item</th><th>Descrição</th><th width="80px">Ação</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+                <div class="action-bar">
+                    <button class="btn btn-danger" onclick="limparTabelaDinâmica('prescricao')">Limpar Lista</button>
+                    <button class="btn btn-primary" onclick="gerarPdfTabela('Prescricao', 'prescricao')">🖨️ Gerar PDF Prescrição</button>
+                </div>
+            </div>
+
+            <div id="view-pedidos" class="view-container">
+                <h1>Pedidos de Exames</h1>
+                <div class="dynamic-table-builder">
+                    <div class="table-input-grid">
+                        <input type="text" id="in-pedidos-item" placeholder="Nome do Exame...">
+                        <button class="btn btn-success" onclick="addLinhaTabela('pedidos')">+ Incluir</button>
+                    </div>
+                </div>
+                <h3>Exames Solicitados (<span id="count-pedidos">0</span>)</h3>
+                <table class="preview-table" id="table-pedidos-preview">
+                    <thead><tr><th width="50px">Item</th><th>Descrição do Exame</th><th width="80px">Ação</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+                <div class="action-bar">
+                    <button class="btn btn-danger" onclick="limparTabelaDinâmica('pedidos')">Limpar Lista</button>
+                    <button class="btn btn-primary" onclick="gerarPdfTabela('Pedido_Exames', 'pedidos')">🖨️ Gerar PDF Pedidos</button>
+                </div>
+            </div>
+
+            <div id="view-receituario" class="view-container">
+                <h1>Receituário</h1><textarea id="txt-receituario"></textarea>
+                <div class="action-bar"><button class="btn btn-primary" onclick="gerarPdfSimples('Receituario', 'txt-receituario')">🖨️ Gerar PDF</button></div>
+            </div>
+            <div id="view-resultados" class="view-container">
+                <h1>Resultados de Exames</h1><textarea id="txt-resultados"></textarea>
+                <div class="action-bar"><button class="btn btn-primary" onclick="gerarPdfSimples('Resultados_Exames', 'txt-resultados')">🖨️ Gerar PDF</button></div>
+            </div>
+            <div id="view-laudos" class="view-container">
+                <h1>Laudos</h1><textarea id="txt-laudos"></textarea>
+                <div class="action-bar"><button class="btn btn-primary" onclick="gerarPdfSimples('Laudo', 'txt-laudos')">🖨️ Gerar PDF</button></div>
+            </div>
+
+            <div id="view-alta" class="view-container">
+                <h1>Sumário de Alta</h1>
+                <div class="form-grid">
+                    <div class="form-group"><label>Tipo de Desfecho</label><select id="alta-desfecho"><option>Alta Hospitalar</option><option>Transferência</option><option>Óbito</option></select></div>
+                    <div class="form-group"><label>CIDs</label><input type="text" id="alta-cid"></div>
+                </div>
+                <textarea id="txt-alta-conduta" placeholder="Orientações de alta..."></textarea>
+                <div class="action-bar"><button class="btn btn-danger" onclick="finalizarAtendimentoDefinitivo()">🛑 Finalizar Atendimento e Gerar PDF</button></div>
+            </div>
+        </main>
+
+        <nav id="sidebar-right">
+            <div class="sidebar-header">AÇÕES CLÍNICAS</div>
+            <div class="nav-group">
+                <button class="nav-btn" onclick="showView('view-evolucao')">📝 Evolução</button>
+                <button class="nav-btn" onclick="showView('view-prescricao')">💊 Prescrição</button>
+                <button class="nav-btn" onclick="showView('view-pedidos')">🔬 Pedidos de Exame</button>
+                <button class="nav-btn" onclick="showView('view-receituario')">📄 Receituário Externo</button>
+                <button class="nav-btn" onclick="showView('view-resultados')">📊 Resultados</button>
+                <button class="nav-btn" onclick="showView('view-laudos')">📜 Laudos</button>
+                <button class="nav-btn btn-alta" onclick="showView('view-alta')">🚪 Finalizar / Alta</button>
+            </div>
+            <div style="padding:10px; border-top: 1px solid #555"><button class="nav-btn" onclick="fecharProntuárioSemFinalizar()">🔙 Voltar à Lista</button></div>
+        </nav>
+    </div>
+
+<script>
+    let medicoLogado = { nome: '', crm: '' };
+    let pacienteAtivo = null;
+    let itensTabelaTemp = { prescricao: [], pedidos: [] };
+    const { jsPDF } = window.jspdf;
+
+    function realizarLogin() {
+        const nome = document.getElementById('medico-nome').value.trim();
+        const crm = document.getElementById('medico-crm').value.trim();
+        if (!nome || !crm) return alert("Preencha os dados.");
+        medicoLogado = { nome, crm };
+        localStorage.setItem('hc_dr_info', JSON.stringify(medicoLogado));
+        carregarInterfaceMain();
+    }
+
+    function checarLogin() {
+        const salvo = localStorage.getItem('hc_dr_info');
+        if (salvo) { medicoLogado = JSON.parse(salvo); carregarInterfaceMain(); }
+    }
+
+    function carregarInterfaceMain() {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app-content').style.display = 'flex';
+        document.getElementById('display-dr-nome').innerText = medicoLogado.nome;
+        document.getElementById('display-dr-crm').innerText = medicoLogado.crm;
+        renderizarListaAtendimentos();
+        renderizarListaFinalizados();
+    }
+
+    function showView(viewId) {
+        document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(viewId).classList.add('active');
+        
+        const isClinico = !['view-admin', 'view-lista', 'view-historico', 'view-finalizados'].includes(viewId);
+        document.getElementById('sidebar-right').style.display = isClinico ? 'flex' : 'none';
+        document.getElementById('patient-header').style.display = isClinico ? 'block' : 'none';
+        
+        if(viewId === 'view-lista') renderizarListaAtendimentos();
+        if(viewId === 'view-finalizados') renderizarListaFinalizados();
+        if(viewId === 'view-historico') renderizarLogsGeral();
+    }
+
+    function criarAtendimento() {
+        const nome = document.getElementById('adm-nome').value.trim();
+        const id = document.getElementById('adm-id').value.trim();
+        if (!nome || !id) return alert("Nome e ID obrigatórios.");
+
+        let abertos = JSON.parse(localStorage.getItem('hc_abertos') || "{}");
+        abertos[id] = { id, nome, nasc: formatarDataBR(document.getElementById('adm-nasc').value), doc: document.getElementById('adm-doc').value, dataInicio: new Date().toLocaleString() };
+        localStorage.setItem('hc_abertos', JSON.stringify(abertos));
+        abrirProntuario(id);
+    }
+
+    function abrirProntuario(atendimentoId) {
+        let abertos = JSON.parse(localStorage.getItem('hc_abertos') || "{}");
+        pacienteAtivo = abertos[atendimentoId];
+        document.getElementById('head-nome').innerText = pacienteAtivo.nome;
+        document.getElementById('head-id').innerText = pacienteAtivo.id;
+        document.getElementById('head-nasc').innerText = pacienteAtivo.nasc || 'N/I';
+        document.getElementById('head-doc').innerText = pacienteAtivo.doc || 'N/I';
+        limparCamposClinicos();
+        showView('view-evolucao');
+    }
+
+    function fecharProntuárioSemFinalizar() { pacienteAtivo = null; showView('view-lista'); }
+
+    function addLinhaTabela(tipo) {
+        const input = document.getElementById(`in-${tipo}-item`);
+        if(!input.value.trim()) return;
+        itensTabelaTemp[tipo].push(input.value.trim());
+        input.value = '';
+        renderizarPreviewTabela(tipo);
+    }
+
+    function removerLinhaTabela(tipo, index) { itensTabelaTemp[tipo].splice(index, 1); renderizarPreviewTabela(tipo); }
+
+    function renderizarPreviewTabela(tipo) {
+        const tbody = document.querySelector(`#table-${tipo}-preview tbody`);
+        tbody.innerHTML = itensTabelaTemp[tipo].map((t, i) => `<tr><td>${i+1}</td><td>${t}</td><td><button class="btn-danger" onclick="removerLinhaTabela('${tipo}',${i})">X</button></td></tr>`).join('');
+        document.getElementById(`count-${tipo}`).innerText = itensTabelaTemp[tipo].length;
+    }
+
+    function renderizarListaAtendimentos() {
+        const abertos = JSON.parse(localStorage.getItem('hc_abertos') || "{}");
+        const container = document.getElementById('lista-atendimentos-container');
+        container.innerHTML = Object.values(abertos).map(p => `<div class="atendimento-card"><div><strong>${p.nome}</strong> (ID: ${p.id})</div><button class="btn btn-primary" onclick="abrirProntuario('${p.id}')">Abrir</button></div>`).join('');
+    }
+
+    function renderizarListaFinalizados() {
+        const finalizados = JSON.parse(localStorage.getItem('hc_finalizados') || "{}");
+        const container = document.getElementById('lista-finalizados-container');
+        container.innerHTML = Object.values(finalizados).map(p => `<div class="atendimento-card" style="opacity:0.8"><div><strong>${p.nome}</strong> (ID: ${p.id})</div><span class="status-badge">FINALIZADO</span></div>`).join('');
+    }
+
+    async function desenharCabecalhoPadrao(doc, titulo) {
+        doc.setFont("Helvetica", "bold"); doc.setFontSize(14); doc.text("SISTEMA DE CONTINGÊNCIA", 105, 15, { align: 'center' });
+        doc.rect(10, 25, 190, 20); doc.setFontSize(10); doc.setFont("Helvetica", "normal");
+        doc.text(`PACIENTE: ${pacienteAtivo.nome} | ID: ${pacienteAtivo.id}`, 15, 32);
+        doc.text(`DOC: ${pacienteAtivo.doc} | NASC: ${pacienteAtivo.nasc}`, 15, 38);
+        doc.setFontSize(12); doc.text(titulo.toUpperCase(), 105, 55, { align: 'center' });
+        return 65;
+    }
+
+    function desenharRodape(doc) {
+        const y = doc.internal.pageSize.getHeight() - 20;
+        doc.line(60, y, 150, y); doc.text(`Dr(a). ${medicoLogado.nome} - CRM: ${medicoLogado.crm}`, 105, y+5, { align: 'center' });
+    }
+
+    async function gerarPdfSimples(tipo, areaId) {
+        const doc = new jsPDF(); let y = await desenharCabecalhoPadrao(doc, tipo);
+        doc.text(doc.splitTextToSize(document.getElementById(areaId).value, 180), 15, y);
+        desenharRodape(doc); registrarLog(tipo); doc.save(`${pacienteAtivo.nome}_${tipo}.pdf`);
+    }
+
+    async function gerarPdfTabela(tipo, fonte) {
+        const doc = new jsPDF(); await desenharCabecalhoPadrao(doc, tipo);
+        doc.autoTable({ startY: 60, head: [['Item', 'Descrição']], body: itensTabelaTemp[fonte].map((t, i) => [i+1, t]), theme: 'striped' });
+        desenharRodape(doc); registrarLog(tipo); doc.save(`${pacienteAtivo.nome}_${tipo}.pdf`);
+    }
+
+    async function finalizarAtendimentoDefinitivo() {
+        if(!confirm("Finalizar?")) return;
+        const doc = new jsPDF(); await desenharCabecalhoPadrao(doc, "ALTA");
+        doc.text(`Desfecho: ${document.getElementById('alta-desfecho').value}\nCIDs: ${document.getElementById('alta-cid').value}\n\nConduta:\n${document.getElementById('txt-alta-conduta').value}`, 15, 65);
+        desenharRodape(doc); doc.save(`${pacienteAtivo.nome}_Alta.pdf`);
+        
+        let abertos = JSON.parse(localStorage.getItem('hc_abertos') || "{}");
+        let finalizados = JSON.parse(localStorage.getItem('hc_finalizados') || "{}");
+        finalizados[pacienteAtivo.id] = abertos[pacienteAtivo.id];
+        delete abertos[pacienteAtivo.id];
+        localStorage.setItem('hc_abertos', JSON.stringify(abertos));
+        localStorage.setItem('hc_finalizados', JSON.stringify(finalizados));
+        pacienteAtivo = null; showView('view-lista');
+    }
+
+    function registrarLog(t) {
+        let logs = JSON.parse(localStorage.getItem('hc_logs') || "[]");
+        logs.push({ data: new Date().toLocaleString(), atendId: pacienteAtivo.id, pacienteNome: pacienteAtivo.nome, tipoDoc: t });
+        localStorage.setItem('hc_logs', JSON.stringify(logs));
+    }
+
+    function renderizarLogsGeral() {
+        const logs = JSON.parse(localStorage.getItem('hc_logs') || "[]");
+        document.querySelector('#table-logs-geral tbody').innerHTML = logs.reverse().map(l => `<tr><td>${l.data}</td><td>${l.atendId}</td><td>${l.pacienteNome}</td><td>${l.tipoDoc}</td></tr>`).join('');
+    }
+
+    function formatarDataBR(d) { if(!d) return ''; const p = d.split('-'); return `${p[2]}/${p[1]}/${p[0]}`; }
+    function limparTabelaDinâmica(t) { itensTabelaTemp[t] = []; renderizarPreviewTabela(t); }
+    function limparCamposClinicos() { document.querySelectorAll('main textarea').forEach(t => t.value = ''); itensTabelaTemp = { prescricao: [], pedidos: [] }; renderizarPreviewTabela('prescricao'); renderizarPreviewTabela('pedidos'); }
+    function limparStorage() { if(confirm("Limpar tudo?")) { localStorage.clear(); location.reload(); } }
+    window.onload = checarLogin;
+</script>
+</body>
+</html>
